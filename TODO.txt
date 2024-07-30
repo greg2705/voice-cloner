@@ -1,0 +1,21 @@
+1) Créer Application Gradio (Done) REDO with poetry
+
+2) One Shot cloning Pipeline (Done) + Direct Generation (Done) + add parameters for the sampling
+
+3) Deep Cloning Pipeline https://www.kaggle.com/code/maxbr0wn/fine-tuning-xtts-v2-english + set up optimize parameters
+
+4) deep testing + cover all scenarios
+
+4) Add multiple models (means you need to create a new dir for tts model and choose model) + Do documentation + upload GitHub + evaluate ressoruce 
+
+5) React App (beautiful react app) with feature
+			
+		
+
+		- Conv between speakers
+		- One shot / Deep Cloning info 
+		- Using LLM to generate in different languages
+		- LLM to create conv for example service client
+		- Video traduction 
+
+6) Improve Discord Bot with installer  + how to monetize
