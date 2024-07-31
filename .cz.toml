@@ -1,0 +1,8 @@
+[tool.commitizen]
+bump_message = "🚀 bump: version v$current_version → v$new_version"
+name = "cz_conventional_commits"
+version_scheme = "semver"
+changelog_incremental = true
+tag_format = "v$version"
+update_changelog_on_bump = true
+version_provider = "poetry"

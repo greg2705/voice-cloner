@@ -1,0 +1,29 @@
+stages:
+  - pre-commit
+  - check
+  - prepare
+  - quality
+  - test
+
+pre-commit:
+  stage: pre-commit
+  before_script:
+    - pip install pre-commit
+  script:
+    - pre-commit run --all-files
+
+check:
+ stage : check
+ script:
+    - ruff check --force-exclude
+
+quality:
+  stage: quality
+  script:
+    - ruff format --force-exclude
+
+test:
+  stage: test
+  script:
+    - pytest tests
+

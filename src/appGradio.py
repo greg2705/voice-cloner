@@ -4,12 +4,12 @@ warnings.filterwarnings('ignore')
 import gradio as gr 
 import os
 import torch 
-import utils_gradio as utils 
+import utils.app_helpers
 import sys 
 from TTS.tts.configs.xtts_config import XttsConfig 
 from TTS.tts.models.xtts import Xtts 
-import tts_pipeline
-import stt_pipeline
+import utils.tts_pipeline
+import utils.stt_pipeline
 
 
 

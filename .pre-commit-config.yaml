@@ -1,0 +1,55 @@
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+  - post-commit
+  - pre-push
+
+repos:
+  - repo: local
+    hooks:
+      - id: poetry-check
+        name: poetry-check
+        entry: poetry check
+        language: system
+        files: ^(.*/)?pyproject.toml$
+        pass_filenames: false
+        description: run poetry check to validate config
+        stages: [pre-commit]
+
+  - repo: local
+    hooks:
+      - id: test
+        name: test
+        entry: pytest
+        language: system
+        pass_filenames: false
+        description: run pytest and produce a coverage report
+        stages: [pre-push]
+
+  - repo: 
+      local
+    hooks:
+      - id: ruff
+        name: ruff
+        description: "Run 'ruff' for extremely fast Python linting"
+        entry: ruff check --force-exclude
+        language: python
+        types_or: [python, pyi]
+        require_serial: true
+        additional_dependencies: []
+        stages: [pre-commit]
+        minimum_pre_commit_version: '2.9.2'
+        args:
+          - --fix
+
+      - id: ruff-format
+        name: ruff-format
+        description: "Run 'ruff format' for extremely fast Python formatting"
+        entry: ruff format --force-exclude
+        language: python
+        types_or: [python, pyi]
+        args: []
+        require_serial: true
+        additional_dependencies: []
+        stages: [pre-commit]
+        minimum_pre_commit_version: "2.9.2"

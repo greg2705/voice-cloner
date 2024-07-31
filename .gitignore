@@ -1,0 +1,102 @@
+# The `.gitignore` file tells Git which files should not be versioned.
+
+.env
+.env.*
+.hypothesis
+
+# Python compiled files
+*.pyc
+
+# Do not ignore .gitkeep files
+!*.gitkeep
+
+# Extensions of files with data
+data/
+models/
+reports/
+## Secret file
+secrets.yaml
+## Classic files with data
+*.csv
+*.json
+*.parquet
+*.data
+## Serialized python objects
+*.pckl
+*.pkl
+*.pickle
+*.joblib
+## Office files
+*.xls
+*.xlsx
+*.docx
+*.pdf
+*.doc
+## Compressed files
+*.zip
+*.gz
+*.tar
+*.rar
+*.7z
+
+# Binary files
+*.exe
+
+# Python virtualEnv
+venv/
+.venv/
+.env/
+env/
+
+# Test Generated files
+*.pytest*/
+*.coverage
+.coverage.*
+
+# Test reports
+**.xml
+
+# Logs
+*.log
+*.out
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.egg*
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+wheelhouse/
+*.egg-info/
+pip-wheel-metadata/
+.installed.cfg
+*.egg
+*.eggs
+*__pycache__
+
+# Python Notebook
+*.ipynb_checkpoints
+*/*.ipynb_checkpoints/*
+
+# IDE
+## Jetbrains
+**.idea
+
+## VSCODE
+**.vscod*
+
+## Theia
+**.theia
+
+# Miscellaneous files
+*.swp
+.DS_Store
+Thumbs.db
