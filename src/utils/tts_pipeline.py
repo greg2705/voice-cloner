@@ -1,34 +1,36 @@
+from typing import Any, tuple
+
 import torch
 import torchaudio
 
 
-def load_speaker(speaker_path):
+def load_speaker(speaker_path: str) -> tuple[torch.Tensor, torch.Tensor]:
     loaded_speaker = torch.load(speaker_path)
     gpt_cond_latent = loaded_speaker["gpt_cond_latent"]
     speaker_embedding = loaded_speaker["speaker_embedding"]
     return gpt_cond_latent, speaker_embedding
 
 
-def save_speaker(model, path_audio, output_path):
+def save_speaker(model: Any, path_audio: str, output_path: str) -> None:
     gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=path_audio)
     torch.save({"gpt_cond_latent": gpt_cond_latent, "speaker_embedding": speaker_embedding}, output_path)
 
 
 def generation(
-    model,
-    text,
-    language,
-    gpt_cond_latent,
-    speaker_embedding,
-    output_path,
-    temperature=0.65,
-    length_penalty=1.0,
-    repetition_penalty=2.0,
-    top_k=50,
-    top_p=0.8,
-    speed=1.0,
-    enable_text_splitting=True,
-):
+    model: Any,
+    text: str,
+    language: str,
+    gpt_cond_latent: torch.Tensor,
+    speaker_embedding: torch.Tensor,
+    output_path: str,
+    temperature: float = 0.65,
+    length_penalty: float = 1.0,
+    repetition_penalty: float = 2.0,
+    top_k: int = 50,
+    top_p: float = 0.8,
+    speed: float = 1.0,
+    enable_text_splitting: bool = True,
+) -> str:
     out = model.inference(
         text,
         language,
@@ -46,7 +48,17 @@ def generation(
     return output_path
 
 
-def one_shot_generation(model, audio_path, text, language, output_path, speed, temperature, repetition_penalty, top_k):
+def one_shot_generation(
+    model: Any,
+    audio_path: str,
+    text: str,
+    language: str,
+    output_path: str,
+    speed: float,
+    temperature: float,
+    repetition_penalty: float,
+    top_k: int,
+) -> str:
     gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=audio_path)
     output_path = generation(
         model,
@@ -63,7 +75,17 @@ def one_shot_generation(model, audio_path, text, language, output_path, speed, t
     return output_path
 
 
-def direct_generation(model, text, language, speaker_name, output_path, speed, temperature, repetition_penalty, top_k):
+def direct_generation(
+    model: Any,
+    text: str,
+    language: str,
+    speaker_name: str,
+    output_path: str,
+    speed: float,
+    temperature: float,
+    repetition_penalty: float,
+    top_k: int,
+) -> str:
     gpt_cond_latent, speaker_embedding = load_speaker(speaker_name)
     output_path = generation(
         model,

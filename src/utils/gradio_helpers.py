@@ -1,7 +1,13 @@
 # Monkey patch to solve pyutbe package
 
+import os
 import re
+import shutil
+from typing import Union
 
+from huggingface_hub import snapshot_download
+from pydub import AudioSegment
+from pytube import YouTube
 from pytube import cipher
 
 
@@ -25,12 +31,11 @@ def get_throttling_function_name(js: str) -> str:
         r'a\.[a-zA-Z]\s*&&\s*\([a-z]\s*=\s*a\.get\("n"\)\)\s*&&\s*' r"\([a-z]\s*=\s*([a-zA-Z0-9$]+)(\[\d+\])?\([a-z]\)",
         r"\([a-z]\s*=\s*([a-zA-Z0-9$]+)(\[\d+\])\([a-z]\)",
     ]
-    # logger.debug('Finding throttling function name')
+
     for pattern in function_patterns:
         regex = re.compile(pattern)
         function_match = regex.search(js)
         if function_match:
-            # logger.debug("finished regex search, matched: %s", pattern)
             if len(function_match.groups()) == 1:
                 return function_match.group(1)
             idx = function_match.group(2)
@@ -42,20 +47,10 @@ def get_throttling_function_name(js: str) -> str:
                     array = [x.strip() for x in array]
                     return array[int(idx)]
 
-    raise RegexMatchError(  # type: ignore
-        caller="get_throttling_function_name", pattern="multiple"
-    )
+    raise ValueError("Something went wrong when download youtube video")
 
 
 cipher.get_throttling_function_name = get_throttling_function_name
-
-
-import os
-import shutil
-
-from huggingface_hub import snapshot_download
-from pydub import AudioSegment
-from pytube import YouTube
 
 
 def create_directory(directory: str) -> None:
@@ -82,7 +77,7 @@ def download_model_hf(model_path: str, url: str) -> bool:
 
 def clear_upload_temp() -> None:
     directory = "upload_temp"
-    if os.path.exists(directory) == False:
+    if not os.path.exists(directory):
         return
     shutil.rmtree(directory)
     return
@@ -108,23 +103,26 @@ def generate_unique_filename(directory: str, filename: str) -> str:
     return new_filename
 
 
-def get_audio_from_video(url, output_path, filename):
-    tries = 0
-    for i in range(10):
+def get_audio_from_video(url: str, output_path: str, filename: str) -> Union[str, bool]:
+    max_tries = 10
+    current_try = 0
+    audio_video = None
+
+    video = YouTube(url)
+    audio_video = video.streams.filter(only_audio=True).first()
+    while current_try < max_tries:
         try:
-            video = YouTube(url)
-            audio_video = video.streams.filter(only_audio=True).first()
             pth = audio_video.download(
-                output_path=output_path, filename=filename + audio_video.mime_type.split("/")[-1]
+                output_path=output_path, filename=filename + "." + audio_video.mime_type.split("/")[-1]
             )
             return pth
 
         except Exception:
-            tries += 1
+            current_try += 1
     return False
 
 
-def convert_to_wav_and_delete_og(input_file, filename):
+def convert_to_wav_and_delete_og(input_file: str, filename: str) -> None:
     # Determine the file extension
     file_extension = os.path.splitext(input_file)[1]
 

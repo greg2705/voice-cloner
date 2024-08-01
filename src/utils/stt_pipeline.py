@@ -3,51 +3,25 @@ import gc
 import io
 import threading
 import time
-from typing import Any, Optional
 
 import numpy as np
 import soundfile as sf
 import torch
 import whisperx
 from pyannote.audio import Pipeline
+from pyannote.core import Annotation
 from pydub import AudioSegment
 from tqdm import tqdm
 
 
-# Define the hook class
-class MyGradioHookPyannote:
-    def __init__(self, your_tqdm_progress_bar):
-        self.your_tqdm_progress_bar = your_tqdm_progress_bar
-        self.current_step_name = None
-
-    def __call__(
-        self,
-        step_name: str,
-        step_artifact: Any,
-        file: Optional[dict] = None,
-        total: Optional[int] = None,
-        completed: Optional[int] = None,
-    ):
-        # Check if the step_name has changed
-        if step_name != self.current_step_name:
-            # Reset the progress bar
-            self.your_tqdm_progress_bar.close()
-            if step_name == "embeddings":
-                self.your_tqdm_progress_bar = tqdm(total=total, desc=f"Step 2/3: {step_name}")
-
-            elif step_name == "discrete_diarization":
-                self.your_tqdm_progress_bar.n = 0
-                self.your_tqdm_progress_bar.refresh()
-            else:
-                self.your_tqdm_progress_bar = tqdm(total=total, desc=f"Step 1/3: {step_name}")
-            self.current_step_name = step_name
-
-        if total is not None and completed is not None:
-            self.your_tqdm_progress_bar.total = total
-            self.your_tqdm_progress_bar.update(completed - self.your_tqdm_progress_bar.n)
-
-
-def stt(model_path, audio_file, lang, device="cuda", batch_size=12, compute_type="float16"):
+def stt(
+    model_path: str,
+    audio_file: str,
+    lang: str,
+    device: str = "cuda",
+    batch_size: int = 12,
+    compute_type: str = "float16",
+) -> dict:
     model = whisperx.load_model(model_path, device, compute_type=compute_type, language=lang)
     audio = whisperx.load_audio(audio_file)
     result = model.transcribe(audio, batch_size=batch_size, language=lang)
@@ -57,29 +31,37 @@ def stt(model_path, audio_file, lang, device="cuda", batch_size=12, compute_type
     return result
 
 
-def diarization(model_path, audio_file, device="cuda"):
+def diarization(model_path: str, audio_file: str, device: str = "cuda") -> Annotation:
     pipeline = Pipeline.from_pretrained(model_path)
-    hook = MyGradioHookPyannote(tqdm(total=100))
+
     if device == "cuda":
         pipeline.to(torch.device("cuda"))
-    result = pipeline(audio_file, hook=hook)
+    result = pipeline(audio_file)
     gc.collect()
     torch.cuda.empty_cache()
     del pipeline
     return result
 
 
-def get_audio_duration(file_path):
+def get_audio_duration(file_path: str) -> float:
     audio = AudioSegment.from_file(file_path)
     duration_seconds = len(audio) / 1000  # pydub returns duration in milliseconds
     return duration_seconds
 
 
-def load_audio_tqdm(model_stt, config_path, audio_path, lang, device="cuda", batch_size=6, compute_type="int8"):
+def load_audio_tqdm(
+    model_stt: str,
+    config_path: str,
+    audio_path: str,
+    lang: str,
+    device: str = "cuda",
+    batch_size: int = 6,
+    compute_type: str = "int8",
+) -> tuple[Annotation, dict]:
     with contextlib.redirect_stdout(io.StringIO()):
         dia = diarization(config_path, audio_path, device=device)
 
-        def run_pipeline():
+        def run_pipeline() -> None:
             global result
             result = stt(model_stt, audio_path, lang, device=device, batch_size=batch_size, compute_type=compute_type)
 
@@ -95,7 +77,7 @@ def load_audio_tqdm(model_stt, config_path, audio_path, lang, device="cuda", bat
         return dia, result
 
 
-def get_speaker_durations(annotation):
+def get_speaker_durations(annotation: Annotation) -> dict[str, float]:
     """
     Takes an Annotation object and returns a dictionary with speaker labels as keys
     and their total speech duration as values.
@@ -111,22 +93,22 @@ def get_speaker_durations(annotation):
     return speaker_durations
 
 
-def get_speaker_times(annotation, speaker):
+def get_speaker_times(annotation: Annotation, speaker: str) -> list[tuple[float, float]]:
     """
     Takes an Annotation object and returns a list of segments where the speaker speaks.
 
-    :param timeline: pyannote.core.Annotation
-    :return: list of Segment objects representing the time intervals where the speaker speaks
+    :param annotation: pyannote.core.Annotation
+    :param speaker: the speaker label
+    :return: list of tuples representing the time intervals where the speaker speaks
     """
     timeline = annotation.label_timeline(speaker)
     speaker_times = []
     # Iterate over each segment in the timeline
-    for segment in timeline:
-        speaker_times.append((segment.start, segment.end))
+    speaker_times = [(segment.start, segment.end) for segment in timeline]
     return speaker_times
 
 
-def extract_speaker_audio(annotation, audio_path):
+def extract_speaker_audio(annotation: Annotation, audio_path: str) -> dict[str, tuple[np.ndarray, int]]:
     # Load the audio file
     y, sr = sf.read(audio_path)
 
