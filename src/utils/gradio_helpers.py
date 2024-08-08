@@ -1,56 +1,10 @@
-# Monkey patch to solve pyutbe package
-
 import os
-import re
 import shutil
 from typing import Union
 
 from huggingface_hub import snapshot_download
 from pydub import AudioSegment
-from pytube import YouTube
-from pytube import cipher
-
-
-def get_throttling_function_name(js: str) -> str:
-    """Extract the name of the function that computes the throttling parameter.
-
-    :param str js:
-        The contents of the base.js asset file.
-    :rtype: str
-    :returns:
-        The name of the function used to compute the throttling parameter.
-    """
-    function_patterns = [
-        # https://github.com/ytdl-org/youtube-dl/issues/29326#issuecomment-865985377
-        # https://github.com/yt-dlp/yt-dlp/commit/48416bc4a8f1d5ff07d5977659cb8ece7640dcd8
-        # var Bpa = [iha];
-        # ...
-        # a.C && (b = a.get("n")) && (b = Bpa[0](b), a.set("n", b),
-        # Bpa.length || iha("")) }};
-        # In the above case, `iha` is the relevant function name
-        r'a\.[a-zA-Z]\s*&&\s*\([a-z]\s*=\s*a\.get\("n"\)\)\s*&&\s*' r"\([a-z]\s*=\s*([a-zA-Z0-9$]+)(\[\d+\])?\([a-z]\)",
-        r"\([a-z]\s*=\s*([a-zA-Z0-9$]+)(\[\d+\])\([a-z]\)",
-    ]
-
-    for pattern in function_patterns:
-        regex = re.compile(pattern)
-        function_match = regex.search(js)
-        if function_match:
-            if len(function_match.groups()) == 1:
-                return function_match.group(1)
-            idx = function_match.group(2)
-            if idx:
-                idx = idx.strip("[]")
-                array = re.search(rf"var {re.escape(function_match.group(1))}\s*=\s*(\[.+?\]);", js)
-                if array:
-                    array = array.group(1).strip("[]").split(",")
-                    array = [x.strip() for x in array]
-                    return array[int(idx)]
-
-    raise ValueError("Something went wrong when download youtube video")
-
-
-cipher.get_throttling_function_name = get_throttling_function_name
+from pytubefix import YouTube
 
 
 def create_directory(directory: str) -> None:
@@ -59,16 +13,22 @@ def create_directory(directory: str) -> None:
         print(f"Directory '{directory}' created")
 
 
-def download_model_hf(model_path: str, url: str) -> bool:
+def download_model_hf(model_path: str, url: str, safe : bool = False) -> bool:
     if os.path.exists(model_path):
         print("Model already download")
         return True
     try:
         os.mkdir(model_path)
         print(f"Creating a directory here {model_path} and downloading the model")
-        snapshot_download(
-            repo_id=url, allow_patterns=["*.pth", "*.json", "*.bin", "*.md5", "*.py", "*.yaml"], local_dir=model_path
-        )
+        if (safe):
+            snapshot_download(
+                repo_id=url, allow_patterns=["*.pth", "*.json", "*.safetensors", "*.md5", "*.py", "*.yaml"], local_dir=model_path
+            )
+        else:
+
+            snapshot_download(
+                repo_id=url, allow_patterns=["*.pth", "*.json", "*.bin", "*.md5", "*.py", "*.yaml"], local_dir=model_path
+            )
         print("Download Sucess")
     except Exception:
         return False
@@ -107,19 +67,19 @@ def get_audio_from_video(url: str, output_path: str, filename: str) -> Union[str
     max_tries = 10
     current_try = 0
     audio_video = None
-
     video = YouTube(url)
     audio_video = video.streams.filter(only_audio=True).first()
-    while current_try < max_tries:
-        try:
+
+    try:
+        while current_try < max_tries:
             pth = audio_video.download(
                 output_path=output_path, filename=filename + "." + audio_video.mime_type.split("/")[-1]
             )
             return pth
-
-        except Exception:
-            current_try += 1
-    return False
+    except Exception:
+        current_try += 1
+        if current_try == max_tries:
+            return False
 
 
 def convert_to_wav_and_delete_og(input_file: str, filename: str) -> None:

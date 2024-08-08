@@ -16,13 +16,25 @@ pytest-cov = "^4.1.0"
 black = "^24.2.0"
 commitizen = "^3.18.3"
 poethepoet = "^0.25.0"
-gradio = "^4.40.0"
+torch = {version = "2.2", source = "pytorch-gpu"}
 tts = "^0.22.0"
-whisperx = "^3.1.5"
-pytube = "^15.0.0"
-pydub = "^0.25.1"
-soundfile = "^0.12.1"
+faster-whisper = {git = "https://github.com/SYSTRAN/faster-whisper.git"}
+tqdm = "^4.66.5"
+pytubefix = "^6.9.2"
 
+
+
+
+
+[tool.poetry.group.dev.dependencies]
+jupyter = "^1.0.0"
+
+
+
+[[tool.poetry.source]]
+name = "pytorch-gpu"
+url = "https://download.pytorch.org/whl/cu118"
+priority = "explicit"
 
 [build-system]
 requires = ["poetry-core", "poetry-dynamic-versioning"]
