@@ -13,23 +13,26 @@ def create_directory(directory: str) -> None:
         print(f"Directory '{directory}' created")
 
 
-def download_model_hf(model_path: str, url: str, safe : bool = False) -> bool:
+def download_model_hf(model_path: str, url: str, safe: bool = False) -> bool:
     if os.path.exists(model_path):
         print("Model already download")
         return True
     try:
         os.mkdir(model_path)
         print(f"Creating a directory here {model_path} and downloading the model")
-        if (safe):
+        if safe:
             snapshot_download(
-                repo_id=url, allow_patterns=["*.pth", "*.json", "*.safetensors", "*.md5", "*.py", "*.yaml"], local_dir=model_path
+                repo_id=url,
+                allow_patterns=["*.pth", "*.json", "*.safetensors", "*.md5", "*.py", "*.yaml"],
+                local_dir=model_path,
             )
         else:
-
             snapshot_download(
-                repo_id=url, allow_patterns=["*.pth", "*.json", "*.bin", "*.md5", "*.py", "*.yaml"], local_dir=model_path
+                repo_id=url,
+                allow_patterns=["*.pth", "*.json", "*.bin", "*.md5", "*.py", "*.yaml"],
+                local_dir=model_path,
             )
-        print("Download Sucess")
+        print("\nDownload Sucess")
     except Exception:
         return False
     return True

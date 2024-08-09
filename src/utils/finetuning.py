@@ -31,7 +31,7 @@ def clear_gpu_cache() -> None:
         torch.cuda.empty_cache()
 
 
-def concatenate_audios_with_silence(audio_paths: list[str]) -> tuple[torch.Tensor, int] :
+def concatenate_audios_with_silence(audio_paths: list[str]) -> tuple[torch.Tensor, int]:
     # Set the target sample rate and audio format
     target_sample_rate = 22050
     silence_duration = 1  # 1 second of silence
@@ -61,7 +61,13 @@ def concatenate_audios_with_silence(audio_paths: list[str]) -> tuple[torch.Tenso
     return concatenated_waveform, target_sample_rate
 
 
-def suppress_overlaps_and_blanks(audio_paths: list[str], hf_token: str, embedding_batch_size : int = 12, segmentation_batch_size : int = 12, num_speakers : int = -1) -> tuple[torch.Tensor, int, Annotation]:
+def suppress_overlaps_and_blanks(
+    audio_paths: list[str],
+    hf_token: str,
+    embedding_batch_size: int = 12,
+    segmentation_batch_size: int = 12,
+    num_speakers: int = -1,
+) -> tuple[torch.Tensor, int, Annotation]:
     """
     Suppress overlapping and blank parts from the waveform based on diarization result.
 
@@ -76,7 +82,16 @@ def suppress_overlaps_and_blanks(audio_paths: list[str], hf_token: str, embeddin
     # Ensure the diarization result is an Annotation object
     waveform, sample_rate = concatenate_audios_with_silence(audio_paths)
 
-    dia = diarization_torch("pyannote/speaker-diarization-3.1", waveform, sample_rate, token_hf=hf_token, device="cuda", embedding_batch_size=embedding_batch_size, segmentation_batch_size=segmentation_batch_size, num_speakers=num_speakers)
+    dia = diarization_torch(
+        "pyannote/speaker-diarization-3.1",
+        waveform,
+        sample_rate,
+        token_hf=hf_token,
+        device="cuda",
+        embedding_batch_size=embedding_batch_size,
+        segmentation_batch_size=segmentation_batch_size,
+        num_speakers=num_speakers,
+    )
 
     timeline_overlapping_speech = Timeline(dia.get_overlap())
     timeline_blank_speech = Timeline(dia.get_timeline()).gaps()
@@ -104,10 +119,29 @@ def suppress_overlaps_and_blanks(audio_paths: list[str], hf_token: str, embeddin
     return torch.cat(remaining_samples), sample_rate, dia
 
 
-def get_matching_audio_speakers(waveform: torch.Tensor, sample_rate: int, lst_speakers: list[str], hf_token: str, stt_path: str, lang: str, embedding_batch_size: int = 12, segmentation_batch_size: int = 12, stt_batch_size: int = 12, num_speakers: int = -1) -> pd.DataFrame:
-
+def get_matching_audio_speakers(
+    waveform: torch.Tensor,
+    sample_rate: int,
+    lst_speakers: list[str],
+    hf_token: str,
+    stt_path: str,
+    lang: str,
+    embedding_batch_size: int = 12,
+    segmentation_batch_size: int = 12,
+    stt_batch_size: int = 12,
+    num_speakers: int = -1,
+) -> pd.DataFrame:
     torchaudio.save("temp.wav", waveform, sample_rate)
-    dia = diarization_torch("pyannote/speaker-diarization-3.1", waveform, sample_rate, token_hf=hf_token, device="cuda", embedding_batch_size=embedding_batch_size, segmentation_batch_size=segmentation_batch_size, num_speakers=num_speakers)
+    dia = diarization_torch(
+        "pyannote/speaker-diarization-3.1",
+        waveform,
+        sample_rate,
+        token_hf=hf_token,
+        device="cuda",
+        embedding_batch_size=embedding_batch_size,
+        segmentation_batch_size=segmentation_batch_size,
+        num_speakers=num_speakers,
+    )
     res_stt = stt(stt_path, "temp.wav", lang=lang, device="cuda", batch_size=stt_batch_size, compute_type="int8")
     os.remove("temp.wav")
     res = pd.DataFrame(matching_stt_dia(res_stt, dia))
@@ -120,13 +154,12 @@ def target_time(max_length: int) -> float:
     num_samples = 1
     samples = -1
     rng = default_rng()
-    while (samples < 0 or samples > max_length):  # Number of samples to generate
+    while samples < 0 or samples > max_length:  # Number of samples to generate
         samples = rng.normal(loc=mean_dev, scale=std_dev, size=num_samples)[0]
     return samples
 
 
 def create_audio(matching_dia_stt: any, max_length: int) -> list:
-
     matching_dia_stt = matching_dia_stt.reset_index(drop=True)
     matching_dia_stt["next_start"] = matching_dia_stt["start"].shift(-1)
     matching_dia_stt["diff"] = matching_dia_stt["next_start"] - matching_dia_stt["end"]
@@ -136,22 +169,23 @@ def create_audio(matching_dia_stt: any, max_length: int) -> list:
     current_text = ""
     current_target_time = target_time(max_length)
 
-    for i in matching_dia_stt.index[:-1:] :
-
-        if (current_start == 0):
+    for i in matching_dia_stt.index[:-1:]:
+        if current_start == 0:
             current_start = matching_dia_stt["start"][i]
 
         current_text += matching_dia_stt["text"][i]
         delta = matching_dia_stt["end"][i] - current_start
         next_delta = matching_dia_stt["end"][i + 1] - current_start
 
-        if (matching_dia_stt["diff"][i] > 2):
+        if matching_dia_stt["diff"][i] > 2:
             res.append({"start": current_start, "end": matching_dia_stt["end"][i], "text": current_text})
             current_start = 0
             current_text = ""
             current_target_time = target_time(max_length)
 
-        if (np.abs(delta - current_target_time) < 0.5 or np.abs(delta - current_target_time) < np.abs(next_delta - current_target_time)):
+        if np.abs(delta - current_target_time) < 0.5 or np.abs(delta - current_target_time) < np.abs(
+            next_delta - current_target_time
+        ):
             res.append({"start": current_start, "end": matching_dia_stt["end"][i], "text": current_text})
             current_start = 0
             current_text = ""
@@ -160,8 +194,9 @@ def create_audio(matching_dia_stt: any, max_length: int) -> list:
     return res
 
 
-def create_dataset(waveform: torch.tensor, sp_rate: int, path_dataset: str, matching_dia_stt: pd.DataFrame, max_length: int = 15) -> str:
-
+def create_dataset(
+    waveform: torch.tensor, sp_rate: int, path_dataset: str, matching_dia_stt: pd.DataFrame, max_length: int = 15
+) -> str:
     # Initialize metadata
     metadata = {"audio_file": [], "text": [], "speaker_name": []}
     padding = 0.15 * sp_rate
@@ -201,65 +236,69 @@ def create_dataset(waveform: torch.tensor, sp_rate: int, path_dataset: str, matc
 
 def create_model_args(model_path: str, max_length: int, sp_rate: int) -> GPTArgs:
     return GPTArgs(
-    max_conditioning_length=max_length * sp_rate,  # the audio you will use for conditioning latents should be less than this
-    min_conditioning_length=sp_rate,  # and more than this
-    debug_loading_failures=True,  # this will print output to console and help you find problems in your ds
-    max_wav_length=max_length * sp_rate,  # set this to >= the longest audio in your dataset
-    max_text_length=200,
-    mel_norm_file=model_path + "/mel_stats.pth",
-    dvae_checkpoint=model_path + "/dvae.pth",
-    xtts_checkpoint=model_path + "/model.pth",
-    tokenizer_file=model_path + "/vocab.json",
-    gpt_num_audio_tokens=1026,
-    gpt_start_audio_token=1024,
-    gpt_stop_audio_token=1025,
-    gpt_use_masking_gt_prompt_approach=True,
-    gpt_use_perceiver_resampler=True,
-)
+        max_conditioning_length=max_length
+        * sp_rate,  # the audio you will use for conditioning latents should be less than this
+        min_conditioning_length=sp_rate,  # and more than this
+        debug_loading_failures=True,  # this will print output to console and help you find problems in your ds
+        max_wav_length=max_length * sp_rate,  # set this to >= the longest audio in your dataset
+        max_text_length=200,
+        mel_norm_file=model_path + "/mel_stats.pth",
+        dvae_checkpoint=model_path + "/dvae.pth",
+        xtts_checkpoint=model_path + "/model.pth",
+        tokenizer_file=model_path + "/vocab.json",
+        gpt_num_audio_tokens=1026,
+        gpt_start_audio_token=1024,
+        gpt_stop_audio_token=1025,
+        gpt_use_masking_gt_prompt_approach=True,
+        gpt_use_perceiver_resampler=True,
+    )
 
 
 def create_audio_config(sp_rate: int) -> XttsAudioConfig:
     return XttsAudioConfig(sample_rate=sp_rate, dvae_sample_rate=sp_rate, output_sample_rate=24000)
 
 
-def create_trainer_config(model_args: GPTArgs, audio_config: XttsAudioConfig, out_path: str, batch_size: int, nb_epochs: int) -> GPTTrainerConfig:
+def create_trainer_config(
+    model_args: GPTArgs, audio_config: XttsAudioConfig, out_path: str, batch_size: int, nb_epochs: int
+) -> GPTTrainerConfig:
     os.makedirs(out_path, exist_ok=True)
     return GPTTrainerConfig(
-    run_eval=True,
-    epochs=nb_epochs,
-    output_path=out_path,
-    model_args=model_args,
-    run_name="finetuning",
-    project_name="Recipe Finetuning",
-    run_description="finetune",
-    dashboard_logger="tensorboard",
-    logger_uri=None,
-    audio=audio_config,
-    batch_size=batch_size,
-    batch_group_size=48,
-    eval_batch_size=batch_size,
-    num_loader_workers=8,  # consider decreasing if your jupyter env is crashing or similar
-    eval_split_max_size=256,
-    print_step=50,
-    save_best_after=0,
-    save_all_best=False,
-    log_model_step=1000,
-    save_step=99999999,
-    save_n_checkpoints=0,
-    save_checkpoints=False,
-    print_eval=False,
-    optimizer="AdamW",
-    optimizer_wd_only_on_weights=True,
-    optimizer_params={"betas": [0.9, 0.96], "eps": 1e-8, "weight_decay": 1e-2},
-    lr=5e-06,
-    lr_scheduler="MultiStepLR",
-    lr_scheduler_params={"milestones": [50000 * 18, 150000 * 18, 300000 * 18], "gamma": 0.5, "last_epoch": -1},
-    test_sentences=[],
-)
+        run_eval=True,
+        epochs=nb_epochs,
+        output_path=out_path,
+        model_args=model_args,
+        run_name="finetuning",
+        project_name="Recipe Finetuning",
+        run_description="finetune",
+        dashboard_logger="tensorboard",
+        logger_uri=None,
+        audio=audio_config,
+        batch_size=batch_size,
+        batch_group_size=48,
+        eval_batch_size=batch_size,
+        num_loader_workers=8,  # consider decreasing if your jupyter env is crashing or similar
+        eval_split_max_size=256,
+        print_step=50,
+        save_best_after=0,
+        save_all_best=False,
+        log_model_step=1000,
+        save_step=99999999,
+        save_n_checkpoints=0,
+        save_checkpoints=False,
+        print_eval=False,
+        optimizer="AdamW",
+        optimizer_wd_only_on_weights=True,
+        optimizer_params={"betas": [0.9, 0.96], "eps": 1e-8, "weight_decay": 1e-2},
+        lr=5e-06,
+        lr_scheduler="MultiStepLR",
+        lr_scheduler_params={"milestones": [50000 * 18, 150000 * 18, 300000 * 18], "gamma": 0.5, "last_epoch": -1},
+        test_sentences=[],
+    )
 
 
-def training(config: GPTTrainerConfig, lang: str, training_path: str, GRAD_ACUMM_STEPS: int, out_path: str, base_model_path : str) -> None:
-
+def training(
+    config: GPTTrainerConfig, lang: str, training_path: str, GRAD_ACUMM_STEPS: int, out_path: str, base_model_path: str
+) -> None:
     config_dataset = BaseDatasetConfig(
         formatter="coqui",
         dataset_name="ft_dataset",
@@ -280,16 +319,18 @@ def training(config: GPTTrainerConfig, lang: str, training_path: str, GRAD_ACUMM
     )
 
     trainer = Trainer(
-    TrainerArgs(
-        restore_path=None,
-        skip_train_epoch=False,
-        start_with_eval=True,
-        grad_accum_steps=GRAD_ACUMM_STEPS,),
-    config,
-    output_path=out_path,
-    model=model,
-    train_samples=train_samples,
-    eval_samples=eval_samples,)
+        TrainerArgs(
+            restore_path=None,
+            skip_train_epoch=False,
+            start_with_eval=True,
+            grad_accum_steps=GRAD_ACUMM_STEPS,
+        ),
+        config,
+        output_path=out_path,
+        model=model,
+        train_samples=train_samples,
+        eval_samples=eval_samples,
+    )
 
     trainer.fit()
 
@@ -301,7 +342,7 @@ def training(config: GPTTrainerConfig, lang: str, training_path: str, GRAD_ACUMM
     subdirs = [d for d in os.listdir(out_path) if os.path.isdir(os.path.join(out_path, d))]
     for subdir in subdirs:
         files = list(os.listdir(os.path.join(out_path, subdir)))
-        if ("best_model.pth" in files):
+        if "best_model.pth" in files:
             model_src = os.path.join(out_path + "/" + subdir, "best_model.pth")
             model_dst = os.path.join(out_path, "model.pth")
             shutil.copy(model_src, model_dst)

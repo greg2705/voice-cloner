@@ -36,8 +36,7 @@ def generation(
     output_path: str,
     dict_arg: Optional[dict] = None,
 ) -> str:
-
-    if dict_arg is None :
+    if dict_arg is None:
         dict_arg = {}
 
     temperature = dict_arg.get("temperature", 0.65)
@@ -76,19 +75,9 @@ def one_shot_generation(
     repetition_penalty: float,
     top_k: int,
 ) -> str:
+    dict_args = {"temperature": temperature, "speed": speed, "repetition_penalty": repetition_penalty, "top_k": top_k}
     gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(audio_path=audio_path)
-    output_path = generation(
-        model,
-        text,
-        language,
-        gpt_cond_latent,
-        speaker_embedding,
-        output_path,
-        temperature=temperature,
-        repetition_penalty=repetition_penalty,
-        top_k=top_k,
-        speed=speed,
-    )
+    output_path = generation(model, text, language, gpt_cond_latent, speaker_embedding, output_path, dict_args)
     return output_path
 
 
@@ -103,17 +92,7 @@ def direct_generation(
     repetition_penalty: float,
     top_k: int,
 ) -> str:
+    dict_args = {"temperature": temperature, "speed": speed, "repetition_penalty": repetition_penalty, "top_k": top_k}
     gpt_cond_latent, speaker_embedding = load_speaker(speaker_name)
-    output_path = generation(
-        model,
-        text,
-        language,
-        gpt_cond_latent,
-        speaker_embedding,
-        output_path,
-        temperature=temperature,
-        repetition_penalty=repetition_penalty,
-        top_k=top_k,
-        speed=speed,
-    )
+    output_path = generation(model, text, language, gpt_cond_latent, speaker_embedding, output_path, dict_args)
     return output_path
