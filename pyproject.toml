@@ -21,6 +21,7 @@ tts = "^0.22.0"
 faster-whisper = {git = "https://github.com/SYSTRAN/faster-whisper.git"}
 tqdm = "^4.66.5"
 pytubefix = "^6.9.2"
+torchvision = "0.17"
 
 
 

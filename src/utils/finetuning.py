@@ -1,4 +1,5 @@
 import gc
+import logging
 import os
 import shutil
 
@@ -19,6 +20,7 @@ from TTS.tts.layers.xtts.trainer.gpt_trainer import GPTTrainerConfig
 from TTS.tts.layers.xtts.trainer.gpt_trainer import XttsAudioConfig
 
 from .stt_pipeline import diarization_torch
+from .stt_pipeline import extract_speaker_audio
 from .stt_pipeline import matching_stt_dia
 from .stt_pipeline import stt
 
@@ -117,6 +119,67 @@ def suppress_overlaps_and_blanks(
 
     # Concatenate all remaining samples
     return torch.cat(remaining_samples), sample_rate, dia
+
+
+def suppress_overlaps_and_blanks_app(
+    audio_paths: list[str],
+    hf_token: str,
+    embedding_batch_size: int = 12,
+    segmentation_batch_size: int = 12,
+    num_speakers: int = -1,
+) -> tuple[torch.Tensor, int, Annotation]:
+    """
+    Suppress overlapping and blank parts from the waveform based on diarization result.
+
+    Parameters:
+    waveform (torch.Tensor): The audio waveform as a 2D torch tensor (channels x samples).
+    sample_rate (int): The sample rate of the audio.
+    diarization (Annotation): The diarization result as a pyannote.core.Annotation object.
+
+    Returns:
+    torch.Tensor: The processed waveform with overlapping and blank parts suppressed.
+    """
+    # Ensure the diarization result is an Annotation object
+    waveform, sample_rate = concatenate_audios_with_silence(audio_paths)
+
+    dia = diarization_torch(
+        "pyannote/speaker-diarization-3.1",
+        waveform,
+        sample_rate,
+        token_hf=hf_token,
+        device="cuda",
+        embedding_batch_size=embedding_batch_size,
+        segmentation_batch_size=segmentation_batch_size,
+        num_speakers=num_speakers,
+    )
+
+    torchaudio.save("Upload_Temp/concatenated.wav", waveform, sample_rate)
+    res_dia = extract_speaker_audio(dia, "Upload_Temp/concatenated.wav")
+
+    timeline_overlapping_speech = Timeline(dia.get_overlap())
+    timeline_blank_speech = Timeline(dia.get_timeline()).gaps()
+    timeline_to_supress = timeline_overlapping_speech.union(timeline_blank_speech)
+    num_samples = waveform.shape[0]
+    remaining_samples = []
+    current_sample = 0
+
+    for segment in timeline_to_supress:
+        start_sample = int(segment.start * sample_rate)
+        end_sample = int(segment.end * sample_rate)
+
+        # Add samples before the current segment
+        if start_sample > current_sample:
+            remaining_samples.append(waveform[current_sample:start_sample])
+
+        # Move the current sample pointer to the end of the current segment
+        current_sample = end_sample
+
+    # Add any remaining samples after the last segment
+    if current_sample < num_samples:
+        remaining_samples.append(waveform[current_sample:])
+
+    # Concatenate all remaining samples
+    return torch.cat(remaining_samples), sample_rate, res_dia
 
 
 def get_matching_audio_speakers(
@@ -220,6 +283,7 @@ def create_dataset(
             wavs_counter += 1
 
     metadata_df = pd.DataFrame(metadata)
+    metadata_df = metadata_df[metadata_df["text"].str.len() >= 10].reset_index(drop=True)
 
     train_df = metadata_df.sample(frac=1 - 0.15).reset_index(drop=True)
     eval_df = metadata_df.drop(train_df.index).reset_index(drop=True)
@@ -338,7 +402,11 @@ def training(
     clear_gpu_cache()
     gc.collect()
 
-    # Clean the directory
+    for handler in logging.getLogger("trainer").handlers:
+        if isinstance(handler, logging.FileHandler):
+            handler.close()
+            logging.getLogger("trainer").removeHandler(handler)
+
     subdirs = [d for d in os.listdir(out_path) if os.path.isdir(os.path.join(out_path, d))]
     for subdir in subdirs:
         files = list(os.listdir(os.path.join(out_path, subdir)))

@@ -23,7 +23,7 @@ print(f"Project path : {PATH_PROJECT}")
 # Upload Temp path
 UPLOAD_TEMP = PATH_PROJECT + "/Upload_Temp"
 # Clear the upload temp when starting the app
-clear_upload_temp()
+clear_upload_temp(UPLOAD_TEMP)
 create_directory(UPLOAD_TEMP)
 os.environ["GRADIO_TEMP_DIR"] = UPLOAD_TEMP
 print(f"Path where file will be upload : {UPLOAD_TEMP}")
@@ -199,15 +199,6 @@ def create_language_dropdown(default_value: str = "English") -> gr.Dropdown:
     )
 
 
-def create_sliders() -> tuple:
-    return (
-        gr.Slider(label="Speed", minimum=0.1, maximum=2, value=1.0, step=0.1, interactive=True),
-        gr.Slider(label="Temperature", minimum=0.1, maximum=1, value=0.65, step=0.05, interactive=True),
-        gr.Slider(label="Repetition Penalty", minimum=0.0, maximum=4.0, value=2.0, step=0.1, interactive=True),
-        gr.Slider(label="Top K", minimum=0, maximum=100, value=50, step=5, interactive=True),
-    )
-
-
 def create_audio_output(label: str) -> gr.Audio:
     return gr.Audio(
         sources=["upload"],
@@ -220,6 +211,7 @@ def create_audio_output(label: str) -> gr.Audio:
 
 
 def download_base_model() -> None:
+    print("\n")
     bool = download_model_hf("xtts_v2", "coqui/XTTS-v2")
     if not bool:
         gr.Warning("Impossible to download base model")
@@ -267,7 +259,7 @@ with gr.Blocks(css=css, js=js_func, title="VoiceCloner", theme=gr.themes.Soft())
     gr.HTML(
         """
         <p style='font-size:40px;text-align:center;margin-bottom:20px;'>
-        <b>Voice Cloner</b>
+        <b>Voice Cloner Inference</b>
         </p>
         """
     )
@@ -275,7 +267,7 @@ with gr.Blocks(css=css, js=js_func, title="VoiceCloner", theme=gr.themes.Soft())
     with gr.Tabs():
         with gr.TabItem("Information / Load Model"):
             gr.HTML("""<h2 style="font-size: 20px;">Getting Started</h2>
-                    <p style="font-size: 18px">You will find lot of informations in the console.</p>
+                    <p style="font-size: 18px">Very important to look at the terminal.</p>
 <br>
 <div style="display: flex; justify-content: space-between; flex-wrap: wrap; font-size: 18px;">
     <div style="width: 48%; text-align: left; box-sizing: border-box;">

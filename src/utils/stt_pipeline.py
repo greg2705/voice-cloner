@@ -127,6 +127,7 @@ def get_speaker_times(annotation: Annotation, speaker: str) -> list[tuple[float,
 
 def extract_speaker_audio(annotation: Annotation, audio_path: str) -> dict[str, tuple[np.ndarray, int]]:
     # Load the audio file
+
     y, sr = sf.read(audio_path)
 
     # Initialize the dictionary to store speaker audio segments
@@ -152,7 +153,7 @@ def extract_speaker_audio(annotation: Annotation, audio_path: str) -> dict[str, 
     for speaker in speaker_audio:
         concatenated_audio = np.concatenate(speaker_audio[speaker])
         duration = len(concatenated_audio) / sr
-        if duration >= 120:
+        if duration >= 60:
             filtered_speaker_audio[speaker] = (concatenated_audio, sr)
 
     return filtered_speaker_audio

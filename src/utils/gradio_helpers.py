@@ -13,9 +13,9 @@ def create_directory(directory: str) -> None:
         print(f"Directory '{directory}' created")
 
 
-def download_model_hf(model_path: str, url: str, safe: bool = False) -> bool:
+def download_model_hf(model_path: str, url: str, safe: bool = False, hf_token: str = "") -> bool:
     if os.path.exists(model_path):
-        print("Model already download")
+        print(f"Model {model_path} already download")
         return True
     try:
         os.mkdir(model_path)
@@ -32,17 +32,16 @@ def download_model_hf(model_path: str, url: str, safe: bool = False) -> bool:
                 allow_patterns=["*.pth", "*.json", "*.bin", "*.md5", "*.py", "*.yaml"],
                 local_dir=model_path,
             )
-        print("\nDownload Sucess")
+        print(f"\nDownload {model_path} Sucess")
     except Exception:
         return False
     return True
 
 
-def clear_upload_temp() -> None:
-    directory = "upload_temp"
+def clear_upload_temp(directory: str) -> None:
     if not os.path.exists(directory):
         return
-    shutil.rmtree(directory)
+    shutil.rmtree(directory, ignore_errors=True)
     return
 
 
@@ -70,14 +69,18 @@ def get_audio_from_video(url: str, output_path: str, filename: str) -> Union[str
     max_tries = 10
     current_try = 0
     audio_video = None
-    video = YouTube(url)
-    audio_video = video.streams.filter(only_audio=True).first()
+    try:
+        video = YouTube(url)
+    except Exception:
+        return False
 
+    audio_video = video.streams.filter(only_audio=True).first()
     try:
         while current_try < max_tries:
             pth = audio_video.download(
                 output_path=output_path, filename=filename + "." + audio_video.mime_type.split("/")[-1]
             )
+            print(f"Youtube video  is downloaded here {pth}")
             return pth
     except Exception:
         current_try += 1
